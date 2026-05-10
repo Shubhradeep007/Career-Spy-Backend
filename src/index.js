@@ -19,6 +19,8 @@ app.use(express.json());
 // Routes will go here
 app.get("/", (req, res) => res.json({ message: "Career Spy API running" }));
 
+startNewsCron();
+
 const authRoutes = require("./routes/auth.routes");
 app.use("/api/auth", authRoutes);
 
@@ -28,7 +30,9 @@ app.use("/api/resume", resumeRoutes);
 const companyRoutes = require("./routes/company.routes");
 app.use("/api/companies", companyRoutes);
 
-startNewsCron();
+const jobRoutes = require("./routes/job.routes");
+app.use("/api/jobs", jobRoutes);
+
 
 // Global error handler
 app.use((err, req, res, next) => {

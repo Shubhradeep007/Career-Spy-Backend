@@ -729,6 +729,118 @@
 					}
 				}
 			]
+		},
+		{
+			"name": "Jobs",
+			"item": [
+				{
+					"name": "Search & Score Jobs",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"query\": \"Node.js Developer\",\n    \"location\": \"Bangalore\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:5000/api/jobs/search",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"api",
+								"jobs",
+								"search"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Recommended Jobs",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:5000/api/jobs/recommended",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"api",
+								"jobs",
+								"recommended"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get My Jobs",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:5000/api/jobs",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"api",
+								"jobs"
+							]
+						}
+					}
+				},
+				{
+					"name": "Get Single Job",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{token}}"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:5000/api/jobs/REPLACE_WITH_JOB_ID",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "5000",
+							"path": [
+								"api",
+								"jobs",
+								"REPLACE_WITH_JOB_ID"
+							]
+						}
+					}
+				}
+			]
 		}
 	],
 	"variable": [
