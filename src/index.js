@@ -3,6 +3,8 @@ const express = require("express");
 const http = require("http");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const { startNewsCron } = require("./cron/newsCron");
+
 const connectDB = require("./config/db");
 
 dotenv.config();
@@ -22,6 +24,11 @@ app.use("/api/auth", authRoutes);
 
 const resumeRoutes = require("./routes/resume.routes");
 app.use("/api/resume", resumeRoutes);
+
+const companyRoutes = require("./routes/company.routes");
+app.use("/api/companies", companyRoutes);
+
+startNewsCron();
 
 // Global error handler
 app.use((err, req, res, next) => {

@@ -1,9 +1,9 @@
-const axios    = require("axios");
-const mammoth  = require("mammoth");
-const { PDFParse } = require("pdf-parse");
+const axios   = require("axios");
+const mammoth = require("mammoth");
+const PDFParser = require("pdf2json");
 
 /**
- * Downloads a file from a URL (Cloudinary) and returns a Buffer.
+ * Downloads a file from Cloudinary and returns a Buffer.
  */
 const downloadFile = async (url) => {
   const response = await axios.get(url, { responseType: "arraybuffer" });
@@ -11,12 +11,26 @@ const downloadFile = async (url) => {
 };
 
 /**
- * Extracts plain text from a PDF buffer using pdf-parse.
+ * Extracts plain text from a PDF buffer using pdf2json.
+ * Works on Windows + Node 22 with zero import issues.
  */
-const extractPdfText = async (buffer) => {
-  const parser = new PDFParse({ data: buffer });
-  const result = await parser.getText();
-  return result.text;
+const extractPdfText = (buffer) => {
+  return new Promise((resolve, reject) => {
+    const parser = new PDFParser(null, 1); // 1 = raw text mode
+
+    parser.on("pdfParser_dataReady", (pdfData) => {
+      // pdf2json stores raw text in pdfData.Pages[].Texts[].R[].T
+      // getRawTextContent() gives us everything joined cleanly
+      const text = parser.getRawTextContent();
+      resolve(text);
+    });
+
+    parser.on("pdfParser_dataError", (err) => {
+      reject(new Error(err.parserError || "PDF parsing failed"));
+    });
+
+    parser.parseBuffer(buffer);
+  });
 };
 
 /**
