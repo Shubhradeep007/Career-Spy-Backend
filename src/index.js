@@ -20,6 +20,9 @@ app.get("/", (req, res) => res.json({ message: "Career Spy API running" }));
 const authRoutes = require("./routes/auth.routes");
 app.use("/api/auth", authRoutes);
 
+const resumeRoutes = require("./routes/resume.routes");
+app.use("/api/resume", resumeRoutes);
+
 // Global error handler
 app.use((err, req, res, next) => {
   console.error(err.message);
