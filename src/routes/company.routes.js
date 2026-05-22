@@ -1,27 +1,16 @@
 const express = require("express");
-const router = express.Router();
-const companyController = require("../controllers/company.controller");
 const { protect } = require("../middleware/auth.middleware");
+const { getWatchedCompanies, addWatchedCompany, deleteWatchedCompany } = require("../controllers/company.controller");
 
-// All company routes require login
+const router = express.Router();
+
 router.use(protect);
 
-// GET    /api/companies          — get all watched companies
-router.get("/", companyController.getCompanies);
+router.route("/")
+  .get(getWatchedCompanies)
+  .post(addWatchedCompany);
 
-// POST   /api/companies          — add company to watchlist
-router.post("/", companyController.addCompany);
-
-// GET    /api/companies/:id      — get single company + news
-router.get("/:id", companyController.getCompany);
-
-// PUT    /api/companies/:id      — update company details
-router.put("/:id", companyController.updateCompany);
-
-// DELETE /api/companies/:id      — remove from watchlist
-router.delete("/:id", companyController.removeCompany);
-
-// POST   /api/companies/:id/refresh  — manually refresh news
-router.post("/:id/refresh", companyController.refreshNews);
+router.route("/:id")
+  .delete(deleteWatchedCompany);
 
 module.exports = router;

@@ -3,15 +3,17 @@ const express = require("express");
 const http = require("http");
 const cors = require("cors");
 const dotenv = require("dotenv");
-const { startNewsCron } = require("./cron/newsCron");
+dotenv.config();
 
+const { startSpyCron } = require("./cron/spyCron");
 const connectDB = require("./config/db");
 
-dotenv.config();
 connectDB();
 
 const app = express();
 const server = http.createServer(app); // needed for Socket.io
+const { initSocket } = require("./socket");
+const io = initSocket(server);
 
 app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
 app.use(express.json());
@@ -19,19 +21,20 @@ app.use(express.json());
 // Routes will go here
 app.get("/", (req, res) => res.json({ message: "Career Spy API running" }));
 
-startNewsCron();
+startSpyCron();
 
 const authRoutes = require("./routes/auth.routes");
 app.use("/api/auth", authRoutes);
 
-const resumeRoutes = require("./routes/resume.routes");
-app.use("/api/resume", resumeRoutes);
-
 const companyRoutes = require("./routes/company.routes");
 app.use("/api/companies", companyRoutes);
+const signalRoutes = require("./routes/signal.routes");
+app.use("/api/signals", signalRoutes);
 
-const jobRoutes = require("./routes/job.routes");
-app.use("/api/jobs", jobRoutes);
+const notificationRoutes = require("./routes/notification.routes");
+app.use("/api/notifications", notificationRoutes);
+const adminRoutes = require("./routes/admin.routes");
+app.use("/api/admin", adminRoutes);
 
 
 // Global error handler
