@@ -4,6 +4,7 @@ const Signal = require("../models/Signal.model");
 const Alert = require("../models/Alert.model");
 const CronLog = require("../models/CronLog.model");
 const Notification = require("../models/Notification.model");
+const User = require("../models/User.model");
 
 const { getAdzunaJobCount } = require("../services/adzunaService");
 const { getNewsCount } = require("../services/newsApiService");
@@ -49,8 +50,7 @@ const processCompany = async (company) => {
 
     // 5. Alert Logic
     if (aiInsight.hireScore >= 70 && company.alertActive) {
-      // check if we recently sent an alert for this signal (simplified: check if an alert exists for this signalId)
-      // actually we check if we already alerted today
+      // Check if we recently alerted today
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
 
@@ -60,39 +60,100 @@ const processCompany = async (company) => {
       });
 
       if (!existingAlert) {
-        // Send email
-        await transporter.sendMail({
-          from: `"Career Spy 🕵️" <${process.env.EMAIL_USER}>`,
-          to: process.env.EMAIL_USER, // Ideally we populate user email here, but for now we fallback or need to fetch user
-          subject: `🔥 ${company.companyName} is hiring! Score: ${aiInsight.hireScore}`,
-          html: `<p><strong>${company.companyName}</strong> has a hire score of ${aiInsight.hireScore}.</p>
-                 <p><strong>Summary:</strong> ${aiInsight.aiSummary}</p>
-                 <p><strong>Action:</strong> ${aiInsight.aiAction}</p>`
-        });
+        // Fetch recipient email dynamically
+        const userObj = await User.findById(company.userId);
+        const recipientEmail = userObj?.email || process.env.EMAIL_USER;
 
-        await Alert.create({
-          userId: company.userId,
-          companyId: company._id,
-          signalId: newSignal._id,
-          hireScore: aiInsight.hireScore,
-          verdict: aiInsight.verdict,
-          emailStatus: "sent",
-          sentAt: new Date()
-        });
+        // Build premium HTML content
+        const emailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
+            <h2 style="color: #1e3a8a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px; text-align: center;">🕵️ Career Spy Alert</h2>
+            <p style="font-size: 16px; color: #374151;">Great news! <strong>${company.companyName}</strong> is displaying high hiring signals.</p>
+            
+            <div style="margin: 20px 0; background-color: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; display: inline-block; width: 100%; box-sizing: border-box;">
+              <div style="float: left; font-size: 28px; font-weight: bold; color: ${aiInsight.verdict === 'HOT' ? '#ef4444' : '#f59e0b'}; padding-right: 20px; border-right: 1px solid #e2e8f0; margin-right: 20px; line-height: 1;">
+                ${aiInsight.hireScore}
+              </div>
+              <div style="float: left;">
+                <span style="display: inline-block; background-color: ${aiInsight.verdict === 'HOT' ? '#fecaca' : '#fef3c7'}; color: ${aiInsight.verdict === 'HOT' ? '#991b1b' : '#92400e'}; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: bold; text-transform: uppercase;">
+                  ${aiInsight.verdict}
+                </span>
+                <p style="margin: 4px 0 0 0; color: #64748b; font-size: 13px;">AI Hire Score Verdict</p>
+              </div>
+              <div style="clear: both;"></div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+              <h3 style="color: #1e293b; font-size: 15px; margin-bottom: 8px;">AI Signal Summary:</h3>
+              <p style="margin: 0; color: #475569; font-size: 14px; line-height: 1.5; background-color: #f1f5f9; padding: 12px; border-radius: 6px;">
+                ${aiInsight.aiSummary}
+              </p>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+              <h3 style="color: #1e293b; font-size: 15px; margin-bottom: 8px;">Actionable Advice:</h3>
+              <p style="margin: 0; color: #475569; font-size: 14px; line-height: 1.5; background-color: #f1f5f9; padding: 12px; border-radius: 6px;">
+                ${aiInsight.aiAction}
+              </p>
+            </div>
+
+            ${aiInsight.outreachMessage ? `
+            <div style="margin-bottom: 25px;">
+              <h3 style="color: #1e293b; font-size: 15px; margin-bottom: 8px;">Tailored Outreach Message:</h3>
+              <div style="margin: 0; color: #0f172a; font-size: 13px; line-height: 1.6; background-color: #fafafa; border: 1px dashed #cbd5e1; border-left: 4px solid #1e3a8a; padding: 15px; border-radius: 6px; white-space: pre-wrap; font-family: monospace;">
+${aiInsight.outreachMessage}
+              </div>
+            </div>
+            ` : ""}
+
+            <p style="font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 15px; margin: 20px 0 0 0;">
+              This is an automated alert based on monitored data signals for ${company.companyName}. You can manage notifications under Company Settings on your Career Spy Dashboard.
+            </p>
+          </div>
+        `;
+
+        try {
+          await transporter.sendMail({
+            from: `"Career Spy 🕵️" <${process.env.EMAIL_USER}>`,
+            to: recipientEmail,
+            subject: `🔥 ${company.companyName} is hiring soon! (Hire Score: ${aiInsight.hireScore})`,
+            html: emailHtml
+          });
+
+          await Alert.create({
+            userId: company.userId,
+            companyId: company._id,
+            signalId: newSignal._id,
+            hireScore: aiInsight.hireScore,
+            verdict: aiInsight.verdict,
+            emailStatus: "sent",
+            sentAt: new Date()
+          });
+        } catch (mailErr) {
+          console.error("❌ Failed to send alert email:", mailErr.message);
+          await Alert.create({
+            userId: company.userId,
+            companyId: company._id,
+            signalId: newSignal._id,
+            hireScore: aiInsight.hireScore,
+            verdict: aiInsight.verdict,
+            emailStatus: "failed"
+          });
+        }
 
         await Notification.create({
           userId: company.userId,
           type: "hire_alert",
-          title: `${company.companyName} is hiring!`,
-          message: aiInsight.aiSummary,
+          title: `${company.companyName} Alert!`,
+          message: `${company.companyName} reached a HOT score of ${aiInsight.hireScore}. Action: ${aiInsight.aiAction}`,
           companyId: company._id,
           hireScore: aiInsight.hireScore
         });
 
         io.to(`user_${company.userId}`).emit("notification:new", {
           type: "hire_alert",
-          title: `${company.companyName} is hiring!`,
-          message: aiInsight.aiSummary,
+          title: `${company.companyName} Alert!`,
+          message: `${company.companyName} reached a HOT score of ${aiInsight.hireScore}.`,
           score: aiInsight.hireScore,
           companyName: company.companyName,
           createdAt: new Date()
@@ -172,4 +233,6 @@ const toggleCron = (status) => {
   isGlobalCronEnabled = status;
 };
 
-module.exports = { startSpyCron, runSpyCron, toggleCron, processCompany };
+const getGlobalCronStatus = () => isGlobalCronEnabled;
+
+module.exports = { startSpyCron, runSpyCron, toggleCron, processCompany, getGlobalCronStatus };

@@ -1,4 +1,5 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { logApiCall } = require("./apiLogService");
 
 const getGeminiHireScore = async (companyName, signals, targetRole) => {
   try {
@@ -23,7 +24,8 @@ const getGeminiHireScore = async (companyName, signals, targetRole) => {
         "hireScore": <number 0-100 based on how likely they are hiring right now>,
         "verdict": "<strictly one of: HOT, WARM, COLD>",
         "aiSummary": "<two sentence summary explaining why>",
-        "aiAction": "<one sentence actionable advice for the job seeker>"
+        "aiAction": "<one sentence actionable advice for the job seeker>",
+        "outreachMessage": "<a professional, ready-to-send email or LinkedIn outreach message tailored for a hiring manager at this company for the target role ${targetRole || 'Any'}. Use placeholders like [Your Name] where appropriate.>"
       }
     `;
 
@@ -33,14 +35,24 @@ const getGeminiHireScore = async (companyName, signals, targetRole) => {
        text = text.replace(/^\`\`\`json\n/, '').replace(/\n\`\`\`$/, '');
     }
 
-    return JSON.parse(text);
+    const data = JSON.parse(text);
+    await logApiCall("Gemini", "success");
+    return {
+      hireScore: data.hireScore || 0,
+      verdict: data.verdict || "COLD",
+      aiSummary: data.aiSummary || "",
+      aiAction: data.aiAction || "",
+      outreachMessage: data.outreachMessage || ""
+    };
   } catch (error) {
     console.error(`❌ Gemini Score Error for ${companyName}:`, error.message);
+    await logApiCall("Gemini", "failed", error.message);
     return {
       hireScore: 0,
       verdict: "COLD",
       aiSummary: "Failed to generate AI insights due to an error.",
-      aiAction: "Check back later."
+      aiAction: "Check back later.",
+      outreachMessage: ""
     };
   }
 };

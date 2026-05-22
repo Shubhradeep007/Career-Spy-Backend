@@ -59,4 +59,19 @@ const deleteWatchedCompany = async (req, res) => {
   }
 };
 
-module.exports = { getWatchedCompanies, addWatchedCompany, deleteWatchedCompany };
+// PATCH /api/companies/:id
+const toggleCompanyAlert = async (req, res) => {
+  try {
+    const company = await WatchedCompany.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+    company.alertActive = !company.alertActive;
+    await company.save();
+    res.json(company);
+  } catch (err) {
+    res.status(500).json({ message: "Error toggling alert" });
+  }
+};
+
+module.exports = { getWatchedCompanies, addWatchedCompany, deleteWatchedCompany, toggleCompanyAlert };

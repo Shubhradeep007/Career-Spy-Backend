@@ -102,12 +102,44 @@ const getPlatformAnalytics = async (req, res) => {
       { $project: { _id: 0, companyName: "$originalName", avgScore: { $round: ["$avgScore", 1] } } }
     ]);
 
+    // Aggregation: Daily new user signups (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setHours(0,0,0,0);
+    const dailySignups = await User.aggregate([
+      { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Aggregation: Daily signal volume (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    sevenDaysAgo.setHours(0,0,0,0);
+    const dailySignals = await Signal.aggregate([
+      { $match: { createdAt: { $gte: sevenDaysAgo } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
     res.json({
       users: { total: totalUsers, thisMonth: thisMonthUsers },
       signals: { total: totalSignals, today: todaySignals },
       alerts: { total: totalAlerts, thisWeek: thisWeekAlerts },
       topWatchedCompanies,
-      avgHireScore
+      avgHireScore,
+      dailySignups,
+      dailySignals
     });
 
   } catch (error) {

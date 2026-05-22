@@ -10,6 +10,7 @@ const SignalSchema = new mongoose.Schema({
   verdict: { type: String, enum: ["HOT", "WARM", "COLD"], default: "COLD" },
   aiSummary: { type: String, default: "" },
   aiAction: { type: String, default: "" },
+  outreachMessage: { type: String, default: "" },
   alertSent: { type: Boolean, default: false }
 }, { timestamps: true });
 

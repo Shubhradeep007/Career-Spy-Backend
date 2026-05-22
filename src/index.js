@@ -33,8 +33,18 @@ app.use("/api/signals", signalRoutes);
 
 const notificationRoutes = require("./routes/notification.routes");
 app.use("/api/notifications", notificationRoutes);
+const noticeRoutes = require("./routes/notice.routes");
+app.use("/api/notices", noticeRoutes);
+const supportRoutes = require("./routes/support.routes");
+app.use("/api/support", supportRoutes);
+const chatRoutes = require("./routes/chat.routes");
+app.use("/api/chat", chatRoutes);
 const adminRoutes = require("./routes/admin.routes");
 app.use("/api/admin", adminRoutes);
+const resumeRoutes = require("./routes/resume.routes");
+app.use("/api/resume", resumeRoutes);
+const jobRoutes = require("./routes/job.routes");
+app.use("/api/jobs", jobRoutes);
 
 
 // Global error handler
