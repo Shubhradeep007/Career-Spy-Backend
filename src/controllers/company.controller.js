@@ -32,6 +32,14 @@ const addWatchedCompany = async (req, res) => {
   }
 
   try {
+    // Enforce 10 company limit
+    const count = await WatchedCompany.countDocuments({ userId: req.user._id });
+    if (count >= 10) {
+      return res.status(400).json({ 
+        message: "Watchlist limit reached. You can only watch up to 10 companies. Remove one to add a new target." 
+      });
+    }
+
     const newCompany = await WatchedCompany.create({
       userId: req.user._id,
       companyName,

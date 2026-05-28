@@ -185,6 +185,11 @@ const runSpyCron = async () => {
       const result = await processCompany(company);
       if (result.success && result.alertTriggered) alertsTriggered++;
       if (!result.success) errors.push(result.error);
+      
+      // Add delay to respect Gemini RPM limits (15 TPM for free tier)
+      if (companies.length > 1) {
+        await new Promise(resolve => setTimeout(resolve, 4000));
+      }
     }
 
     await CronLog.create({

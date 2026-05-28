@@ -7,7 +7,7 @@ const getGeminiHireScore = async (companyName, signals, targetRole) => {
     if (!apiKey) throw new Error("Gemini API key missing");
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const prompt = `
       You are an AI job intelligence platform scoring a company's likelihood of hiring soon.
