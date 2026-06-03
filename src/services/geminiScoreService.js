@@ -47,12 +47,48 @@ const getGeminiHireScore = async (companyName, signals, targetRole) => {
   } catch (error) {
     console.error(`❌ Gemini Score Error for ${companyName}:`, error.message);
     await logApiCall("Gemini", "failed", error.message);
+
+    // Heuristic fallback calculation
+    const jobs = signals.jobsPosted || 0;
+    const news = signals.newsCount || 0;
+    const github = signals.githubActivity || 0;
+    const career = signals.careerPageScore || 0;
+
+    const jobScore = Math.min(jobs * 10, 45);
+    const newsScore = Math.min(news * 15, 30);
+    const githubScore = Math.min(Math.floor(github / 2), 15);
+    const careerScore = Math.min(career * 0.1, 10);
+
+    const rawScore = jobScore + newsScore + githubScore + careerScore;
+    const hireScore = Math.round(Math.max(0, Math.min(100, rawScore)));
+
+    let verdict = "COLD";
+    if (hireScore >= 70) {
+      verdict = "HOT";
+    } else if (hireScore >= 40) {
+      verdict = "WARM";
+    }
+
+    const aiSummary = `Rule-based fallback score: ${hireScore}/100. Active jobs score is ${jobScore}/45, news score is ${newsScore}/30, GitHub activity score is ${githubScore}/15, and career page match score is ${Math.round(careerScore)}/10.`;
+    const aiAction = `Gemini API quota exceeded. Apply directly through the ${companyName} career portal and tailer your profile for ${targetRole || 'roles of interest'}.`;
+    
+    const outreachMessage = `Subject: Inquiry: ${targetRole || 'Opportunities'} at ${companyName}
+
+Hi Hiring Team at ${companyName},
+
+I hope this message finds you well. I have been following ${companyName}'s growth and notice that you are currently expanding. 
+
+I would love to connect and discuss how my skills can contribute to your team as a ${targetRole || 'Any'}.
+
+Best regards,
+[Your Name]`;
+
     return {
-      hireScore: 0,
-      verdict: "COLD",
-      aiSummary: "Failed to generate AI insights due to an error.",
-      aiAction: "Check back later.",
-      outreachMessage: ""
+      hireScore,
+      verdict,
+      aiSummary,
+      aiAction,
+      outreachMessage
     };
   }
 };

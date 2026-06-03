@@ -7,35 +7,97 @@ const Notification = require("../models/Notification.model");
 const User = require("../models/User.model");
 
 const { getAdzunaJobCount } = require("../services/adzunaService");
-const { getNewsCount } = require("../services/newsApiService");
+const { getNewsCount, fetchNewsFromRss } = require("../services/newsApiService");
 const { getGithubActivity } = require("../services/githubService");
-const { getCareerPageScore } = require("../services/cheerioService");
+const { getCareerPageScore, scrapeJobsFromCareerPage } = require("../services/cheerioService");
 const { getGeminiHireScore } = require("../services/geminiScoreService");
 const { transporter } = require("../services/emailService");
 const { getIo } = require("../socket");
+const { fetchJobsFromJSearch } = require("../utils/jobFetcher");
 
 let isGlobalCronEnabled = true;
 
 const processCompany = async (company) => {
   try {
-    // 1. Collect Signals in Parallel
-    const [jobsPosted, newsCount, githubActivity, careerPageScore] = await Promise.all([
+    // 1. Collect Signals and listings in Parallel
+    const [jobsPosted, newsCount, githubActivity, careerPageScore, rssNews] = await Promise.all([
       getAdzunaJobCount(company.companyName),
       getNewsCount(company.companyName),
       getGithubActivity(company.githubOrg),
-      getCareerPageScore(company.careerUrl)
+      getCareerPageScore(company.careerUrl),
+      fetchNewsFromRss(company.companyName)
     ]);
 
-    const signalData = { jobsPosted, newsCount, githubActivity, careerPageScore };
+    // Fetch actual job openings matching target role from JSearch
+    let jsearchJobs = [];
+    try {
+      const searchTarget = `${company.companyName} ${company.targetRole || "Software Engineer"}`;
+      let rawJSearch = await fetchJobsFromJSearch({
+        query: searchTarget,
+        location: "India",
+        numPages: 1
+      });
+
+      // Fallback search if specific target role found no jobs
+      if (!rawJSearch || rawJSearch.length === 0) {
+        console.log(`⚠️ No jobs found for specific query "${searchTarget}". Trying fallback query...`);
+        const fallbackTarget = `${company.companyName} Developer`;
+        rawJSearch = await fetchJobsFromJSearch({
+          query: fallbackTarget,
+          location: "India",
+          numPages: 1
+        });
+      }
+
+      jsearchJobs = rawJSearch.slice(0, 3).map(raw => {
+        const salaryMin = raw.job_min_salary;
+        const salaryMax = raw.job_max_salary;
+        const currency = raw.job_salary_currency || "INR";
+        const salaryStr = salaryMin && salaryMax ? `${salaryMin}-${salaryMax} ${currency}` : "Not Disclosed";
+        return {
+          title: raw.job_title,
+          url: raw.job_apply_link || raw.job_google_link,
+          location: [raw.job_city, raw.job_state, raw.job_country].filter(Boolean).join(", "),
+          salary: salaryStr
+        };
+      });
+    } catch (err) {
+      console.error(`❌ Failed fetching real-time jobs for ${company.companyName}:`, err.message);
+    }
+
+    // Scrape job openings directly from company's career page URL
+    let directCareerJobs = [];
+    if (company.careerUrl) {
+      try {
+        directCareerJobs = await scrapeJobsFromCareerPage(company.careerUrl, company.targetRole);
+        console.log(`ℹ️ Scraped ${directCareerJobs.length} direct jobs from career page: ${company.careerUrl}`);
+      } catch (err) {
+        console.error(`❌ Direct career page jobs scraping failed for ${company.companyName}:`, err.message);
+      }
+    }
+
+    // Combine direct jobs and JSearch jobs, prioritizing direct page links
+    const combinedJobs = [...directCareerJobs, ...jsearchJobs].slice(0, 3);
+
+    const signalData = { 
+      jobsPosted: jobsPosted || combinedJobs.length, 
+      newsCount, 
+      githubActivity, 
+      careerPageScore 
+    };
 
     // 2. Get AI Score
     const aiInsight = await getGeminiHireScore(company.companyName, signalData, company.targetRole);
+
+    const topNews = rssNews.slice(0, 3);
 
     // 3. Save Signal
     const newSignal = await Signal.create({
       companyId: company._id,
       ...signalData,
-      ...aiInsight
+      ...aiInsight,
+      jobsList: combinedJobs,
+      newsArticles: topNews
     });
 
     // 4. Emit real-time update
@@ -43,7 +105,11 @@ const processCompany = async (company) => {
     io.to(`user_${company.userId}`).emit("signal:updated", {
       companyId: company._id,
       hireScore: aiInsight.hireScore,
-      verdict: aiInsight.verdict
+      verdict: aiInsight.verdict,
+      aiSummary: aiInsight.aiSummary,
+      aiAction: aiInsight.aiAction,
+      jobsList: combinedJobs,
+      newsArticles: topNews
     });
 
     let alertTriggered = false;

@@ -1,5 +1,7 @@
 const WatchedCompany = require("../models/WatchedCompany.model");
 const Signal = require("../models/Signal.model");
+const { extractGithubOrg } = require("../services/githubService");
+const { processCompany } = require("../cron/spyCron");
 
 // GET /api/companies
 const getWatchedCompanies = async (req, res) => {
@@ -40,13 +42,21 @@ const addWatchedCompany = async (req, res) => {
       });
     }
 
+    const cleanedGithubOrg = extractGithubOrg(githubOrg);
+
     const newCompany = await WatchedCompany.create({
       userId: req.user._id,
       companyName,
-      careerUrl,
-      githubOrg,
+      careerUrl: careerUrl ? careerUrl.trim() : "",
+      githubOrg: cleanedGithubOrg,
       targetRole
     });
+
+    // Run the initial scan asynchronously in the background so the user gets instant results!
+    processCompany(newCompany).catch(err => {
+      console.error(`❌ Background initial scan error for ${companyName}:`, err.message);
+    });
+
     res.status(201).json(newCompany);
   } catch (err) {
     res.status(500).json({ message: "Error adding company" });

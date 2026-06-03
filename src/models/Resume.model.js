@@ -2,10 +2,12 @@ const mongoose = require("mongoose");
 
 const ResumeSchema = new mongoose.Schema(
   {
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     isParsed: { type: Boolean, default: false },
     parseError: { type: String, default: null },
     fileUrl: { type: String, default: null },
+    fileName: { type: String, default: "Resume" },
+    isActive: { type: Boolean, default: false },
     summary: { type: String, default: "" },
     currentJobTitle: { type: String, default: "" },
     currentLocation: { type: String, default: "" },

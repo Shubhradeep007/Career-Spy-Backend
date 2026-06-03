@@ -11,8 +11,11 @@ exports.searchJobs = async (req, res) => {
     return res.status(400).json({ message: "Search query is required." });
   }
 
-  // Fetch user resume if available
-  const resume = await Resume.findOne({ userId: req.user._id, isParsed: true });
+  // Fetch active user resume if available (with fallback to latest parsed)
+  let resume = await Resume.findOne({ userId: req.user._id, isActive: true, isParsed: true });
+  if (!resume) {
+    resume = await Resume.findOne({ userId: req.user._id, isParsed: true }).sort({ updatedAt: -1 });
+  }
 
   let rawJobs = [];
   try {
@@ -174,7 +177,10 @@ exports.searchJobs = async (req, res) => {
 
 // Recommended listings based on resume profile
 exports.getRecommendedJobs = async (req, res) => {
-  const resume = await Resume.findOne({ userId: req.user._id, isParsed: true });
+  let resume = await Resume.findOne({ userId: req.user._id, isActive: true, isParsed: true });
+  if (!resume) {
+    resume = await Resume.findOne({ userId: req.user._id, isParsed: true }).sort({ updatedAt: -1 });
+  }
   if (!resume) {
     return res.json({ jobs: [] });
   }
