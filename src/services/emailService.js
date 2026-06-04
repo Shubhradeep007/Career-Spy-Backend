@@ -13,6 +13,24 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Patch sendMail to automatically rewrite sender to EMAIL_FROM when apikey/resend is used
+const originalSendMail = transporter.sendMail.bind(transporter);
+transporter.sendMail = function (mailOptions, callback) {
+  const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+  
+  if (mailOptions.from) {
+    if (mailOptions.from.includes("<apikey>") || mailOptions.from.includes("<resend>")) {
+      mailOptions.from = mailOptions.from.replace(/<apikey>/, `<${fromEmail}>`).replace(/<resend>/, `<${fromEmail}>`);
+    } else if (process.env.EMAIL_USER && mailOptions.from.includes(`<${process.env.EMAIL_USER}>`)) {
+      mailOptions.from = mailOptions.from.replace(new RegExp(`<${process.env.EMAIL_USER}>`), `<${fromEmail}>`);
+    }
+  } else {
+    mailOptions.from = `"Career Spy" <${fromEmail}>`;
+  }
+
+  return originalSendMail(mailOptions, callback);
+};
+
 // Test connection on server start
 transporter.verify((err, success) => {
   if (err) console.error("❌ Email connection failed:", err.message);
