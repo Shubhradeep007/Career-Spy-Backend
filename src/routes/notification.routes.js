@@ -16,4 +16,31 @@ router.get("/", async (req, res) => {
   }
 });
 
+// PATCH /api/notifications/read-all
+router.patch("/read-all", async (req, res) => {
+  try {
+    await Notification.updateMany({ userId: req.user._id, isRead: false }, { isRead: true });
+    res.json({ message: "All notifications marked as read" });
+  } catch (err) {
+    res.status(500).json({ message: "Error marking all notifications as read" });
+  }
+});
+
+// PATCH /api/notifications/:id/read
+router.patch("/:id/read", async (req, res) => {
+  try {
+    const notification = await Notification.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user._id },
+      { isRead: true },
+      { new: true }
+    );
+    if (!notification) {
+      return res.status(404).json({ message: "Notification not found" });
+    }
+    res.json(notification);
+  } catch (err) {
+    res.status(500).json({ message: "Error marking notification as read" });
+  }
+});
+
 module.exports = router;

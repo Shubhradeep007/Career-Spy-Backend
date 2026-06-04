@@ -28,6 +28,15 @@ const UserSchema = new mongoose.Schema(
 
         // Avatar from OAuth
         avatar: { type: String, default: null },
+
+        // Billing and subscription fields
+        razorpayOrderId: { type: String, default: null },
+        razorpayPaymentId: { type: String, default: null },
+        subscriptionStatus: { 
+            type: String, 
+            enum: ["free", "basic", "pro"], 
+            default: "free" 
+        },
     },
     { timestamps: true }
 );

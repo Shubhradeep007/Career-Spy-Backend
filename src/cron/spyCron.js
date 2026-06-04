@@ -115,7 +115,7 @@ const processCompany = async (company) => {
     let alertTriggered = false;
 
     // 5. Alert Logic
-    if (aiInsight.hireScore >= 70 && company.alertActive) {
+    if (company.alertActive) {
       // Check if we recently alerted today
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
@@ -129,6 +129,9 @@ const processCompany = async (company) => {
         // Fetch recipient email dynamically
         const userObj = await User.findById(company.userId);
         const recipientEmail = userObj?.email || process.env.EMAIL_USER;
+
+        // Allow email alerts for all subscription plans (free, basic, pro)
+        const emailAllowed = true;
 
         // Build premium HTML content
         const emailHtml = `
@@ -163,6 +166,42 @@ const processCompany = async (company) => {
               </p>
             </div>
 
+            ${combinedJobs && combinedJobs.length > 0 ? `
+            <div style="margin-bottom: 25px;">
+              <h3 style="color: #1e293b; font-size: 15px; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">💼 Latest Job Openings:</h3>
+              ${combinedJobs.map(job => `
+                <div style="background-color: #f8fafc; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 10px;">
+                  <div style="font-weight: bold; color: #0f172a; font-size: 14px;">${job.title}</div>
+                  <div style="margin-top: 6px; font-size: 12px; color: #64748b;">
+                    <span style="margin-right: 15px;">📍 ${job.location || "Remote / On-site"}</span>
+                    <span style="background-color: #e2e8f0; color: #334155; padding: 2px 6px; border-radius: 4px; font-weight: 600;">${job.salary || "Direct Apply"}</span>
+                  </div>
+                  <div style="margin-top: 8px;">
+                    <a href="${job.url}" target="_blank" style="display: inline-block; font-size: 12px; color: #1e3a8a; font-weight: bold; text-decoration: none;">Apply Now &rarr;</a>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+            ` : ""}
+
+            ${topNews && topNews.length > 0 ? `
+            <div style="margin-bottom: 25px;">
+              <h3 style="color: #1e293b; font-size: 15px; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">📰 Latest News & Market Signals:</h3>
+              ${topNews.map(article => `
+                <div style="background-color: #f8fafc; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 10px;">
+                  <div style="font-weight: bold; color: #0f172a; font-size: 14px; margin-bottom: 4px;">
+                    <a href="${article.url}" target="_blank" style="color: #0f172a; text-decoration: none;">${article.title}</a>
+                  </div>
+                  <p style="margin: 6px 0; font-size: 12px; color: #475569; line-height: 1.4;">${article.description}</p>
+                  <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">
+                    <span>Source: ${article.source || "Google News"}</span>
+                    ${article.pubDate ? `<span style="margin-left: 10px;">• ${new Date(article.pubDate).toLocaleDateString()}</span>` : ""}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+            ` : ""}
+
             ${aiInsight.outreachMessage ? `
             <div style="margin-bottom: 25px;">
               <h3 style="color: #1e293b; font-size: 15px; margin-bottom: 8px;">Tailored Outreach Message:</h3>
@@ -178,32 +217,45 @@ ${aiInsight.outreachMessage}
           </div>
         `;
 
-        try {
-          await transporter.sendMail({
-            from: `"Career Spy 🕵️" <${process.env.EMAIL_USER}>`,
-            to: recipientEmail,
-            subject: `🔥 ${company.companyName} is hiring soon! (Hire Score: ${aiInsight.hireScore})`,
-            html: emailHtml
-          });
+        if (emailAllowed) {
+          try {
+            await transporter.sendMail({
+              from: `"Career Spy 🕵️" <${process.env.EMAIL_USER}>`,
+              to: recipientEmail,
+              subject: `🔥 ${company.companyName} is hiring soon! (Hire Score: ${aiInsight.hireScore})`,
+              html: emailHtml
+            });
 
+            await Alert.create({
+              userId: company.userId,
+              companyId: company._id,
+              signalId: newSignal._id,
+              hireScore: aiInsight.hireScore,
+              verdict: aiInsight.verdict,
+              emailStatus: "sent",
+              sentAt: new Date()
+            });
+          } catch (mailErr) {
+            console.error("❌ Failed to send alert email:", mailErr.message);
+            await Alert.create({
+              userId: company.userId,
+              companyId: company._id,
+              signalId: newSignal._id,
+              hireScore: aiInsight.hireScore,
+              verdict: aiInsight.verdict,
+              emailStatus: "failed"
+            });
+          }
+        } else {
+          // Free plan — log alert as skipped, no email sent
+          console.log(`ℹ️ Email skipped for free-plan user (${recipientEmail}) — ${company.companyName}`);
           await Alert.create({
             userId: company.userId,
             companyId: company._id,
             signalId: newSignal._id,
             hireScore: aiInsight.hireScore,
             verdict: aiInsight.verdict,
-            emailStatus: "sent",
-            sentAt: new Date()
-          });
-        } catch (mailErr) {
-          console.error("❌ Failed to send alert email:", mailErr.message);
-          await Alert.create({
-            userId: company.userId,
-            companyId: company._id,
-            signalId: newSignal._id,
-            hireScore: aiInsight.hireScore,
-            verdict: aiInsight.verdict,
-            emailStatus: "failed"
+            emailStatus: "skipped_free_plan"
           });
         }
 
@@ -252,9 +304,9 @@ const runSpyCron = async () => {
       if (result.success && result.alertTriggered) alertsTriggered++;
       if (!result.success) errors.push(result.error);
       
-      // Add delay to respect Gemini RPM limits (15 TPM for free tier)
+      // 20s delay between companies — respects Gemini free tier (15 RPM limit)
       if (companies.length > 1) {
-        await new Promise(resolve => setTimeout(resolve, 4000));
+        await new Promise(resolve => setTimeout(resolve, 20000));
       }
     }
 

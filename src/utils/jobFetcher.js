@@ -33,19 +33,29 @@ const fetchJobsFromJSearch = async ({
 
     if (employmentType) params.employment_types = employmentType;
 
-    const response = await axios.get(
-        "https://jsearch.p.rapidapi.com/search",
-        {
-            params,
-            headers: {
-                "X-RapidAPI-Key": process.env.RAPIDAPI_KEY,
-                "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
-            },
-            timeout: 15000,
+    const MAX_RETRIES = 2;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const response = await axios.get(
+                "https://jsearch.p.rapidapi.com/search",
+                {
+                    params,
+                    headers: {
+                        "X-RapidAPI-Key": process.env.RAPIDAPI_KEY,
+                        "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
+                    },
+                    timeout: 30000, // Increased to 30 seconds
+                }
+            );
+            return response.data.data || []; // Array of raw job objects
+        } catch (error) {
+            if (attempt === MAX_RETRIES) {
+                throw error;
+            }
+            console.warn(`⚠️ JSearch API fetch failed (attempt ${attempt}/${MAX_RETRIES}), retrying in 2s...:`, error.message);
+            await new Promise(resolve => setTimeout(resolve, 2000));
         }
-    );
-
-    return response.data.data || []; // Array of raw job objects
+    }
 };
 
 /**

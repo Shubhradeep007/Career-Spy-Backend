@@ -45,6 +45,8 @@ const resumeRoutes = require("./routes/resume.routes");
 app.use("/api/resume", resumeRoutes);
 const jobRoutes = require("./routes/job.routes");
 app.use("/api/jobs", jobRoutes);
+const paymentRoutes = require("./routes/payment.routes");
+app.use("/api/payments", paymentRoutes);
 
 
 // Global error handler

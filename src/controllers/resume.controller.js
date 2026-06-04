@@ -31,11 +31,23 @@ exports.uploadResume = async (req, res) => {
     return res.status(400).json({ message: "No resume file provided." });
   }
 
-  const fileUrl = req.file.path; // Cloudinary URL
-  const originalName = req.file.originalname || "";
-  const ext = originalName.split(".").pop().toLowerCase();
-
   try {
+    // Enforce resume limits based on subscription plan
+    const sub = req.user.subscriptionStatus || "free";
+    const limits = { free: 1, basic: 2, pro: Infinity };
+    const maxResumes = limits[sub] || 1;
+
+    const count = await Resume.countDocuments({ userId: req.user._id });
+    if (count >= maxResumes) {
+      return res.status(400).json({
+        message: `Resume upload limit reached. Your ${sub.toUpperCase()} plan allows up to ${maxResumes} resume(s). Please upgrade in Billing settings to upload more.`
+      });
+    }
+
+    const fileUrl = req.file.path; // Cloudinary URL
+    const originalName = req.file.originalname || "";
+    const ext = originalName.split(".").pop().toLowerCase();
+
     // Deactivate all existing resumes
     await Resume.updateMany({ userId: req.user._id }, { isActive: false });
 

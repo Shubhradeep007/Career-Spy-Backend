@@ -25,7 +25,9 @@ const SignalSchema = new mongoose.Schema({
       title: { type: String },
       url: { type: String },
       pubDate: { type: String },
-      source: { type: String }
+      source: { type: String },
+      description: { type: String },
+      imageUrl: { type: String }
     }
   ]
 }, { timestamps: true });

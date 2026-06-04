@@ -110,6 +110,7 @@ class AuthController {
             email: user.email,
             role: user.role,
             avatar: user.avatar,
+            subscriptionStatus: user.subscriptionStatus || "free",
             token: generateToken(user._id),
         });
     }

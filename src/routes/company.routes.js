@@ -1,6 +1,12 @@
 const express = require("express");
 const { protect } = require("../middleware/auth.middleware");
-const { getWatchedCompanies, addWatchedCompany, deleteWatchedCompany, toggleCompanyAlert } = require("../controllers/company.controller");
+const { 
+  getWatchedCompanies, 
+  addWatchedCompany, 
+  deleteWatchedCompany, 
+  toggleCompanyAlert,
+  getCompanyDetail
+} = require("../controllers/company.controller");
 
 const router = express.Router();
 
@@ -11,6 +17,7 @@ router.route("/")
   .post(addWatchedCompany);
 
 router.route("/:id")
+  .get(getCompanyDetail)
   .delete(deleteWatchedCompany)
   .patch(toggleCompanyAlert);
 
