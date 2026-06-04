@@ -27,8 +27,24 @@ const server = http.createServer(app); // needed for Socket.io
 const { initSocket } = require("./socket");
 const io = initSocket(server);
 
-app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  "http://localhost:3000",
+  "http://localhost:3001"
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true
+}));
 app.use(express.json());
+
 
 const passport = require("./config/passport");
 app.use(passport.initialize());
