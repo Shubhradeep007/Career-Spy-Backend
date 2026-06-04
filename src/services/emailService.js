@@ -19,11 +19,13 @@ transporter.verify((err, success) => {
   else console.log("✅ Email server connected");
 });
 
+const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+
 const sendVerificationEmail = async (to, name, token) => {
   const verifyUrl = `${process.env.FRONTEND_URL}/verify-email?token=${token}`;
 
   await transporter.sendMail({
-    from: `"Career Spy 🕵️" <${process.env.EMAIL_USER}>`,
+    from: `"Career Spy 🕵️" <${fromEmail}>`,
     to,
     subject: "Verify your Career Spy account",
     html: `
@@ -45,7 +47,7 @@ const sendPasswordResetEmail = async (to, name, token) => {
   const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
 
   await transporter.sendMail({
-    from: `"Career Spy 🕵️" <${process.env.EMAIL_USER}>`,
+    from: `"Career Spy 🕵️" <${fromEmail}>`,
     to,
     subject: "Reset your Career Spy password",
     html: `
