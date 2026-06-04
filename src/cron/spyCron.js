@@ -16,8 +16,11 @@ const { getIo } = require("../socket");
 const { fetchJobsFromJSearch } = require("../utils/jobFetcher");
 
 let isGlobalCronEnabled = true;
+let activeScanProgress = null;
 
-const processCompany = async (company) => {
+const getActiveScanProgress = () => activeScanProgress;
+
+const processCompany = async (company, bypassAlertCheck = false) => {
   try {
     // 1. Collect Signals and listings in Parallel
     const [jobsPosted, newsCount, githubActivity, careerPageScore, rssNews] = await Promise.all([
@@ -116,16 +119,24 @@ const processCompany = async (company) => {
 
     // 5. Alert Logic
     if (company.alertActive) {
-      // Check if we recently alerted today
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
+      let shouldAlert = true;
 
-      const existingAlert = await Alert.findOne({
-        companyId: company._id,
-        createdAt: { $gte: startOfDay }
-      });
+      if (!bypassAlertCheck) {
+        // Check if we recently alerted today
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
 
-      if (!existingAlert) {
+        const existingAlert = await Alert.findOne({
+          companyId: company._id,
+          createdAt: { $gte: startOfDay }
+        });
+
+        if (existingAlert) {
+          shouldAlert = false;
+        }
+      }
+
+      if (shouldAlert) {
         // Fetch recipient email dynamically
         const userObj = await User.findById(company.userId);
         const recipientEmail = userObj?.email || process.env.EMAIL_USER;
@@ -288,24 +299,64 @@ ${aiInsight.outreachMessage}
   }
 };
 
-const runSpyCron = async () => {
+const runSpyCron = async (bypassAlertCheck = false) => {
   if (!isGlobalCronEnabled) return;
   const startTime = Date.now();
   const errors = [];
   let companiesProcessed = 0;
   let alertsTriggered = 0;
+  const io = getIo();
 
   try {
     const companies = await WatchedCompany.find();
     companiesProcessed = companies.length;
 
+    // Send initial 0% progress
+    activeScanProgress = {
+      progress: 0,
+      companiesProcessed: 0,
+      totalCompanies: companies.length,
+      currentCompany: companies[0]?.companyName || "Initializing"
+    };
+
+    if (io) {
+      io.emit("cron:progress", activeScanProgress);
+    }
+
+    let index = 0;
     for (const company of companies) {
-      const result = await processCompany(company);
+      // Send progress before processing
+      activeScanProgress = {
+        progress: Math.round((index / companies.length) * 100),
+        companiesProcessed: index,
+        totalCompanies: companies.length,
+        currentCompany: company.companyName
+      };
+
+      if (io) {
+        io.emit("cron:progress", activeScanProgress);
+      }
+
+      const result = await processCompany(company, bypassAlertCheck);
       if (result.success && result.alertTriggered) alertsTriggered++;
       if (!result.success) errors.push(result.error);
       
+      index++;
+
+      // Send progress after processing
+      activeScanProgress = {
+        progress: Math.round((index / companies.length) * 100),
+        companiesProcessed: index,
+        totalCompanies: companies.length,
+        currentCompany: company.companyName
+      };
+
+      if (io) {
+        io.emit("cron:progress", activeScanProgress);
+      }
+
       // 20s delay between companies — respects Gemini free tier (15 RPM limit)
-      if (companies.length > 1) {
+      if (companies.length > 1 && index < companies.length) {
         await new Promise(resolve => setTimeout(resolve, 20000));
       }
     }
@@ -319,7 +370,8 @@ const runSpyCron = async () => {
       durationMs: Date.now() - startTime
     });
 
-    const io = getIo();
+    activeScanProgress = null;
+
     io.emit("cron:status", {
       status: errors.length === 0 ? "success" : "partial",
       companiesProcessed,
@@ -328,6 +380,7 @@ const runSpyCron = async () => {
 
   } catch (error) {
     console.error("Cron Error:", error.message);
+    activeScanProgress = null;
     await CronLog.create({
       runAt: new Date(),
       status: "failed",
@@ -358,4 +411,4 @@ const toggleCron = (status) => {
 
 const getGlobalCronStatus = () => isGlobalCronEnabled;
 
-module.exports = { startSpyCron, runSpyCron, toggleCron, processCompany, getGlobalCronStatus };
+module.exports = { startSpyCron, runSpyCron, toggleCron, processCompany, getGlobalCronStatus, getActiveScanProgress };

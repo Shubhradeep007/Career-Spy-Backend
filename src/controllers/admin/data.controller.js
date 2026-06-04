@@ -203,4 +203,21 @@ const getCompanies = async (req, res) => {
   }
 };
 
-module.exports = { getUsers, getUserDetails, banUser, deleteUser, resetUserPassword, getCompanies };
+// PATCH /api/admin/users/:id/cancel-subscription
+const cancelUserSubscription = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    user.subscriptionStatus = "free";
+    user.razorpayOrderId = null;
+    user.razorpayPaymentId = null;
+    await user.save();
+
+    res.json({ message: "Subscription cancelled successfully", user });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to cancel user subscription" });
+  }
+};
+
+module.exports = { getUsers, getUserDetails, banUser, deleteUser, resetUserPassword, getCompanies, cancelUserSubscription };

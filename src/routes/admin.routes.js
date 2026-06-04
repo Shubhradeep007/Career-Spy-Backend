@@ -9,7 +9,8 @@ const {
   banUser,
   deleteUser,
   resetUserPassword,
-  getCompanies
+  getCompanies,
+  cancelUserSubscription
 } = require("../controllers/admin/data.controller");
 const {
   getCronStatus,
@@ -54,6 +55,7 @@ router.get("/users/:id", getUserDetails);
 router.patch("/users/:id/ban", banUser);
 router.delete("/users/:id", deleteUser);
 router.patch("/users/:id/reset-password", resetUserPassword);
+router.patch("/users/:id/cancel-subscription", cancelUserSubscription);
 
 // Company Watchlist Overview
 router.get("/companies", getCompanies);

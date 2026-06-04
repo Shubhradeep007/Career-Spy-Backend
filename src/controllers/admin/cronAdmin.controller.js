@@ -1,15 +1,17 @@
 const CronLog = require("../../models/CronLog.model");
 const WatchedCompany = require("../../models/WatchedCompany.model");
-const { runSpyCron, processCompany, toggleCron, getGlobalCronStatus } = require("../../cron/spyCron");
+const { runSpyCron, processCompany, toggleCron, getGlobalCronStatus, getActiveScanProgress } = require("../../cron/spyCron");
 
 // GET /api/admin/cron/status
 const getCronStatus = async (req, res) => {
   try {
     const lastRun = await CronLog.findOne().sort({ createdAt: -1 });
     const isEnabled = getGlobalCronStatus();
+    const activeScan = getActiveScanProgress();
     res.json({
       isEnabled,
-      lastRun
+      lastRun,
+      activeScan
     });
   } catch (error) {
     res.status(500).json({ message: "Failed to fetch cron status" });
@@ -30,7 +32,7 @@ const getCronLogs = async (req, res) => {
 const triggerCronForAll = async (req, res) => {
   try {
     // Run asynchronously to prevent API timeout
-    runSpyCron();
+    runSpyCron(true);
     res.json({ message: "Cron job manually triggered for all companies in background" });
   } catch (error) {
     res.status(500).json({ message: "Failed to trigger cron" });

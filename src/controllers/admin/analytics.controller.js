@@ -132,10 +132,46 @@ const getPlatformAnalytics = async (req, res) => {
       { $sort: { _id: 1 } }
     ]);
 
+    // Aggregation: Subscription plan breakdown and revenue
+    const subscriptionStats = await User.aggregate([
+      {
+        $group: {
+          _id: "$subscriptionStatus",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    let freeCount = 0;
+    let basicCount = 0;
+    let proCount = 0;
+
+    subscriptionStats.forEach(stat => {
+      const plan = stat._id || "free";
+      if (plan === "basic") basicCount = stat.count;
+      else if (plan === "pro") proCount = stat.count;
+      else freeCount += stat.count;
+    });
+
+    const totalRevenue = (basicCount * 500) + (proCount * 1500);
+
+    // Get users who purchased a plan
+    const purchasedUsers = await User.find(
+      { subscriptionStatus: { $in: ["basic", "pro"] } },
+      "name email subscriptionStatus razorpayOrderId razorpayPaymentId updatedAt"
+    ).sort({ updatedAt: -1 });
+
     res.json({
       users: { total: totalUsers, thisMonth: thisMonthUsers },
       signals: { total: totalSignals, today: todaySignals },
       alerts: { total: totalAlerts, thisWeek: thisWeekAlerts },
+      revenue: {
+        total: totalRevenue,
+        freeCount,
+        basicCount,
+        proCount
+      },
+      purchasedUsers,
       topWatchedCompanies,
       avgHireScore,
       dailySignups,
