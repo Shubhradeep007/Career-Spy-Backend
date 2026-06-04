@@ -5,6 +5,18 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 dotenv.config();
 
+// Globally sanitize environment variable URLs to prevent trailing slash issues
+if (process.env.FRONTEND_URL) {
+  process.env.FRONTEND_URL = process.env.FRONTEND_URL.replace(/\/$/, "");
+}
+if (process.env.BACKEND_URL) {
+  process.env.BACKEND_URL = process.env.BACKEND_URL.replace(/\/$/, "");
+}
+if (process.env.CLIENT_URL) {
+  process.env.CLIENT_URL = process.env.CLIENT_URL.replace(/\/$/, "");
+}
+
+
 const { startSpyCron } = require("./cron/spyCron");
 const connectDB = require("./config/db");
 
@@ -17,6 +29,10 @@ const io = initSocket(server);
 
 app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
 app.use(express.json());
+
+const passport = require("./config/passport");
+app.use(passport.initialize());
+
 
 // Routes will go here
 app.get("/", (req, res) => res.json({ message: "Career Spy API running" }));

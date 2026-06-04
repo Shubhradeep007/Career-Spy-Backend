@@ -11,6 +11,7 @@ passport.use(
       clientID:     process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       callbackURL:  `${process.env.BACKEND_URL}/api/auth/google/callback`,
+      proxy:        true,
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -54,6 +55,7 @@ passport.use(
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
       callbackURL:  `${process.env.BACKEND_URL}/api/auth/github/callback`,
       scope:        ["user:email"],
+      proxy:        true,
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -99,6 +101,7 @@ passport.use(
       clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
       callbackURL:  `${process.env.BACKEND_URL}/api/auth/linkedin/callback`,
       scope:        ["openid", "profile", "email"],
+      proxy:        true,
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
